@@ -249,10 +249,10 @@ void player_eliminated_to_gui_buffer(const string& player_name, string& buffer) 
 
 
 int8_t take_direction_from_gui_message(string button_received) {
-    string LEFT_BUTTON_DOWN = "LEFT_KEY_DOWN\0";
-    string LEFT_BUTTON_UP = "LEFT_KEY_UP\0";
-    string RIGHT_BUTTON_DOWN = "RIGHT_KEY_DOWN\0";
-    string RIGHT_BUTTON_UP = "RIGHT_KEY_UP\0";
+    string LEFT_BUTTON_DOWN = "LEFT_KEY_DOWN\n";
+    string LEFT_BUTTON_UP = "LEFT_KEY_UP\n";
+    string RIGHT_BUTTON_DOWN = "RIGHT_KEY_DOWN\n";
+    string RIGHT_BUTTON_UP = "RIGHT_KEY_UP\n";
 
     if(LEFT_BUTTON_DOWN.compare(button_received) == 0) {
        return -1;
@@ -266,8 +266,8 @@ int8_t take_direction_from_gui_message(string button_received) {
     if(RIGHT_BUTTON_UP.compare(button_received) == 0) {
         return 0;
     }
-    cout<<"WYNOSI "<<button_received<<endl;
-    return -2;
+    //cout<<"WYNOSI "<<button_received<<endl;
+    return 5;
 }
 
 
@@ -310,7 +310,7 @@ int main (int argc, char *argv[]) {
     connection_succesful = (int)connect_to_gui();
 
     freeaddrinfo(guiinfo);
-    freeaddrinfo(servinfo);
+    //freeaddrinfo(servinfo);
 
     if(!connection_succesful) {
         return 1;
@@ -319,10 +319,22 @@ int main (int argc, char *argv[]) {
     send(gui_sockfd, "NEW_GAME 400 600 karol korwin \n", sizeof("NEW_GAME 400 600 karol korwin \n"), 0);
 
     bool petla = true;
-    while(petla){
-        //check_if_message_from_gui(current_turn_direction);
-    }
 
+    auto buffer = new char[MESSAGE_FROM_GUI_LENGTH];
+    char last_char;
+
+    while(petla) {
+        ssize_t rcv_len;
+
+        //check_if_message_from_gui(current_turn_direction);
+        memset(buffer, 0, 20);
+        rcv_len = recv(gui_sockfd, buffer, 20, 0);
+        if (rcv_len > 0) {
+            cout<<(int)take_direction_from_gui_message(string(buffer))<<" "<<string(buffer)<<" "<<string(buffer).length()<<endl;
+            last_char = string(buffer)[string(buffer).length()-1];
+            cout<<"last key have value "<<(int)last_char<<endl;
+        }
+    }
 
     return 0;
 }
