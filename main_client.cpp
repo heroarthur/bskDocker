@@ -266,8 +266,7 @@ int8_t take_direction_from_gui_message(const string& button_received) {
     if(RIGHT_BUTTON_UP.compare(button_received) == 0) {
         return 0;
     }
-    //cout<<"WYNOSI "<<button_received<<endl;
-    return 5;
+    return -2;
 }
 
 
