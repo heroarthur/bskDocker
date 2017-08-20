@@ -1,0 +1,10 @@
+
+    string test;
+
+    list<string> nazwy;
+    nazwy.push_back("korwin");
+    nazwy.push_back("trump");
+    nazwy.push_back("maxkolonko");
+
+    clear_gui_buffer(gui_buffer);
+    new_game_to_gui_buffer(400, 600, nazwy, gui_buffer);
