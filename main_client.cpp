@@ -17,77 +17,37 @@
 #include <sstream>
 #include <list>
 #include <fcntl.h>
-
+#include "client_utils/client_utils.h"
+#include "client_utils/client_clock.h"
 
 using namespace std;
 
 
 const char LINE_END = 10;
 const int MESSAGE_FROM_GUI_LENGTH = 20;
+const uint64_t CLIENT_TO_SERVER_DATAGRAM_INTERVAL = 20000; // 20ms
 
 
-//server configuration variables
+/***************** server configuration **********************/
 string game_server_host, game_server_port = "12345";
 int server_sockfd;
 struct addrinfo server_ints, *servinfo, *p;
 
 
-//gui configuration variables
-string ui_server_host = "localhost", ui_server_port = "12346";
+/****************** gui configuration ************************/
+string game_ui_host = "localhost", game_ui_port = "12346";
 int gui_sockfd;
 struct addrinfo gui_ints, *guiinfo;
 string gui_buffer;
 
-//client control
+/******************* client control **************************/
 int8_t current_turn_direction = 0;
 uint32_t current_game_id = 0;
 uint32_t next_expected_event_no = 0;
-const uint64_t CLIENT_TO_SERVER_DATAGRAM_INTERVAL = 20000; /* 20ms */
-//Clock* global_clock;
+Clock* global_clock;
 list<string> current_players_names; /* cleared with every new game */
 int64_t last_sent_event_number = -1; /* number of the last event that was sent to the gui */
-
-char fgui[20];
-
-//moze do wywalenia
-int numbytes;
-
-
-pair <string,string> g = make_pair("as","sad");
-
-//
-
-
-bool name_is_assiociate_with_port(string name)
-{
-    for(int i = (int)name.length()-1; i >= 0; i--){
-        if('0' <= name[i] && name[i] <= '9'){
-            continue;
-        }
-        if(name[i] == ':'){
-            return true;
-        }
-        else {
-            return false;
-        }
-    }
-    return false;
-}
-
-pair <string,string> break_into_the_address_and_port(string name){
-    auto ss = (int)name.length();
-    for(int i = (int)name.length()-1; i >= 0; i--){
-        if(name[i] == ':'){
-            ss = i;
-            break;
-        }
-    }
-    pair <string,string> server_port = make_pair(name.substr(0,ss), name.substr(ss+1, name.length()-1));
-    if(server_port.first.length() == 0) {
-        fprintf(stderr, "server name empty");
-    }
-    return server_port;
-}
+uint64_t session_id = 0;
 
 
 int ip_version(const char *src) {
@@ -98,26 +58,6 @@ int ip_version(const char *src) {
         return 6;
     }
     return -1;
-}
-
-
-void assign_addres_and_port(string& addres, string& port, const string &name_to_break){
-    if(name_is_assiociate_with_port(name_to_break)) {
-        pair <string,string> addres_port = break_into_the_address_and_port(name_to_break);
-        addres = addres_port.first;
-        port = addres_port.second;
-    }
-    else {
-        addres = name_to_break;
-    }
-}
-
-
-void assign_arguments(int argc, char *argv[]){
-    if(argc == 3) {
-        assign_addres_and_port(ui_server_host, ui_server_port, string(argv[2]));
-    }
-    assign_addres_and_port(game_server_host, game_server_port, string(argv[1]));
 }
 
 
@@ -172,7 +112,7 @@ bool connect_to_gui() {
     gui_ints.ai_socktype = SOCK_STREAM;
 
     //getaddrinfo
-    if ((rv = getaddrinfo(ui_server_host.c_str(), ui_server_port.c_str(), &gui_ints, &guiinfo)) != 0) {
+    if ((rv = getaddrinfo(game_ui_host.c_str(), game_ui_port.c_str(), &gui_ints, &guiinfo)) != 0) {
         fprintf(stderr, "gui getaddrinfo: %s\n", gai_strerror(rv));
         return false;
     }
@@ -298,9 +238,13 @@ bool try_rec_message_from_gui(int8_t &current_direction) {
 
 int main (int argc, char *argv[]) {
     int connection_succesful = 1;
-
-    assign_arguments(argc, argv);
+    global_clock = new Clock(CLIENT_TO_SERVER_DATAGRAM_INTERVAL);
+    session_id = global_clock->get_session_id();
     //(int)connect_to_server() *
+
+    assign_program_parameters(argc, argv ,
+                              game_ui_host, game_ui_port,
+                              game_server_host, game_server_port);
     connection_succesful = (int)connect_to_gui();
 
     freeaddrinfo(guiinfo);
@@ -312,15 +256,24 @@ int main (int argc, char *argv[]) {
 
     send(gui_sockfd, "NEW_GAME 400 600 karol korwin \n", sizeof("NEW_GAME 400 600 karol korwin \n"), 0);
 
-    bool petla = true;
+    bool t = true;
 
-    while(petla) {
-        if(!try_rec_message_from_gui(current_turn_direction)) {
-            cout<<"nie udalo sie "<<endl;
+    while(t) {
+        if(global_clock->should_sent_next_datagram()) {
+            //wyslij kolejny datagram
         }
+        else {
+            if(try_rec_message_from_gui(current_turn_direction) == false)
+                return 1;
 
+        }
     }
 
+    /*
+           if(!try_rec_message_from_gui(current_turn_direction)) {
+            cout<<"nie udalo sie "<<endl;
+        }
+     */
     return 0;
 }
 
