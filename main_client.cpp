@@ -248,7 +248,7 @@ void player_eliminated_to_gui_buffer(const string& player_name, string& buffer) 
 }
 
 
-int8_t take_direction_from_gui_message(string button_received) {
+int8_t take_direction_from_gui_message(const string& button_received) {
     string LEFT_BUTTON_DOWN = "LEFT_KEY_DOWN\n";
     string LEFT_BUTTON_UP = "LEFT_KEY_UP\n";
     string RIGHT_BUTTON_DOWN = "RIGHT_KEY_DOWN\n";
@@ -271,9 +271,9 @@ int8_t take_direction_from_gui_message(string button_received) {
 }
 
 
-bool check_if_message_from_gui(int8_t& current_direction) {
+bool try_rec_message_from_gui(int8_t &current_direction) {
     ssize_t rcv_len;
-    auto buffer = new char[MESSAGE_FROM_GUI_LENGTH];
+    char buffer[MESSAGE_FROM_GUI_LENGTH];
     string data;
     memset(buffer, 0, MESSAGE_FROM_GUI_LENGTH);
     if ((rcv_len = recv(gui_sockfd, buffer, MESSAGE_FROM_GUI_LENGTH, 0)) == -1) {
@@ -285,18 +285,13 @@ bool check_if_message_from_gui(int8_t& current_direction) {
             perror("read tcp");
             return false;
         }
-        if (rcv_len == 0) {
-            perror("gui disconnected");
-            return false;
-        }
-
     }
-    cout<<"DATA "<<data<<endl;
-    data = string(data);
-    delete[] buffer;
+    if (rcv_len == 0) {
+        perror("gui disconnected");
+        return false;
+    }
+    data = string(buffer);
     current_direction = take_direction_from_gui_message(data);
-    //cout<<"wartos nowa buttoan to: "<<current_direction<<endl;
-
     return true;
 }
 
@@ -320,20 +315,11 @@ int main (int argc, char *argv[]) {
 
     bool petla = true;
 
-    auto buffer = new char[MESSAGE_FROM_GUI_LENGTH];
-    char last_char;
-
     while(petla) {
-        ssize_t rcv_len;
-
-        //check_if_message_from_gui(current_turn_direction);
-        memset(buffer, 0, 20);
-        rcv_len = recv(gui_sockfd, buffer, 20, 0);
-        if (rcv_len > 0) {
-            cout<<(int)take_direction_from_gui_message(string(buffer))<<" "<<string(buffer)<<" "<<string(buffer).length()<<endl;
-            last_char = string(buffer)[string(buffer).length()-1];
-            cout<<"last key have value "<<(int)last_char<<endl;
+        if(!try_rec_message_from_gui(current_turn_direction)) {
+            cout<<"nie udalo sie "<<endl;
         }
+
     }
 
     return 0;
