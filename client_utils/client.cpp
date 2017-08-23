@@ -20,56 +20,10 @@
 #include <sstream>
 #include <list>
 #include <fcntl.h>
-
+#include "client.h"
 
 using namespace std;
 
-const int MESSAGE_FROM_GUI_LENGTH = 20;
-
-class Client {
-
-private:
-    int8_t current_turn_direction;
-    uint32_t current_game_id;
-    uint32_t next_expected_event_no;
-    list<string> current_players_names; //cleared with new game, change during game
-    int64_t last_sent_event_number;
-    uint64_t session_id;
-    string player_name;
-    Clock client_clock = Clock();
-
-private:
-    string game_server_host, game_server_port;
-    int server_sockfd;
-    struct addrinfo server_ints, *servinfo;
-    struct addrinfo *p;
-    string game_ui_host, game_ui_port;
-    int gui_sockfd;
-    struct addrinfo gui_ints, *guiinfo;
-    char buffer[MESSAGE_FROM_GUI_LENGTH];
-
-private:
-    int8_t take_direction_from_gui_message(const string& button_received);
-
-public:
-
-
-
-private:
-    //bool try_rec_message_from_gui();
-
-public:
-    explicit Client (string name,
-                     const string& game_server_host, const string& game_server_port,
-                     const string& game_ui_host, const string& game_ui_port);
-    bool should_sent_next_datagram();
-    bool update_player_direction();
-    bool connect_to_gui_server();
-    bool test_getaddrinfo_other();
-    bool connect_to_server();
-    bool connect_to_gui();
-    bool update_direction();
-};
 
 Client::Client (string name,
                 const string& server_host, const string& server_port,
@@ -85,6 +39,13 @@ Client::Client (string name,
     game_server_port = server_port;
     game_ui_host = ui_host;
     game_ui_port = ui_port;
+    datagram = Client_datagram();
+    client_datagram_length = CLIENT_DATAGRAM_NUMERIC_FIELDS_LENGTH + player_name.length();
+
+    current_players_names.push_back("karol");
+    current_players_names.push_back("max");
+    //current_players_names.push_back("torawareta");
+    //current_players_names.push_back("idz_pan_do_domu");
 }
 
 bool Client::connect_to_server() {
@@ -138,13 +99,10 @@ bool Client::connect_to_gui() {
     gui_ints.ai_protocol = IPPROTO_TCP;
 
     //getaddrinfo
-    cout<<"wartosci: "<<game_ui_host<<" "<<game_ui_port<<endl;
     if ((rv = getaddrinfo(game_ui_host.c_str(), game_ui_port.c_str(), &gui_ints, &guiinfo)) != 0) {
         fprintf(stderr, "gui getaddrinfo: %s\n", gai_strerror(rv));
-        cout<<"no jhjh\n";
         return false;
     }
-    cout<<"korwin"<<endl;
     // loop through all the results and make a sockets for server
     for(p = guiinfo; p != NULL; p = p->ai_next) {
         if ((gui_sockfd = socket(p->ai_family, p->ai_socktype,
@@ -179,7 +137,7 @@ bool Client::connect_to_gui() {
     }
 
     fcntl(gui_sockfd, F_SETFL, O_NONBLOCK);
-    send(gui_sockfd, "NEW_GAME 400 600 karol korwin \n", sizeof("NEW_GAME 400 600 karol korwin \n"), 0);
+    //send(gui_sockfd, "NEW_GAME 400 600 karol korwin \n", sizeof("NEW_GAME 400 600 karol korwin \n"), 0);
     return true;
 }
 
@@ -187,8 +145,8 @@ bool Client::connect_to_gui() {
 bool Client::update_direction() {
     ssize_t rcv_len;
     string data;
-    memset(buffer, 0, MESSAGE_FROM_GUI_LENGTH);
-    if ((rcv_len = recv(gui_sockfd, buffer, MESSAGE_FROM_GUI_LENGTH, 0)) == -1) {
+    memset(gui_buffer, 0, MESSAGE_FROM_GUI_LENGTH);
+    if ((rcv_len = recv(gui_sockfd, gui_buffer, MESSAGE_FROM_GUI_LENGTH, 0)) == -1) {
         if(errno == EAGAIN || errno == EWOULDBLOCK) {
             //perror("socket now is empty");
             return true;
@@ -202,9 +160,9 @@ bool Client::update_direction() {
         perror("gui disconnected");
         return false;
     }
-    data = string(buffer);
+    data = string(gui_buffer);
     current_turn_direction = take_direction_from_gui_message(data);
-    cout<<(int)current_turn_direction<<" - kierunek\n";
+    cout<<data<<endl;
     return true;
 }
 
@@ -235,3 +193,61 @@ bool Client::should_sent_next_datagram() {
     return client_clock.expired_last_time_interval();
 }
 
+bool Client::send_datagram_to_server() {
+    datagram.create_datagram_for_server(datagram_buffer,
+                                        session_id, current_turn_direction,
+                                        next_expected_event_no, player_name);
+
+    if(send(server_sockfd, datagram_buffer, client_datagram_length, 0) == -1) {
+        perror("send to server: ");
+        return false;
+    }
+    return true;
+}
+
+
+
+bool Client::send_new_game_to_gui() {
+    string message = "NEW_GAME " + to_string(maxx) + " " + to_string(maxy);
+
+    for (auto i : current_players_names){
+        message += " " + i;
+    }
+    message += "\n";
+    cout<<message<<endl;
+    //send(gui_sockfd, "NEW_GAME 400 600 karol korwin \n", sizeof("NEW_GAME 400 600 karol korwin \n"), 0);
+
+    if(send(gui_sockfd, message.c_str(), message.length(), 0) == -1) {
+        perror("send to gui NEW_GAME: ");
+        return false;
+    }
+    return true;
+}
+
+bool Client::send_pixel_to_gui(const int &x, const int &y, const string &player_name) {
+    string message = "PIXEL " + to_string(x) + " " + to_string(y) + " " + player_name + "\n";
+
+    if(send(gui_sockfd, message.c_str(), message.length(), 0) == -1) {
+        perror("send to gui PIXEL: ");
+        return false;
+    }
+    return true;
+}
+
+bool Client::send_player_eliminate_to_gui(const string &player_name) {
+    string message = "PLAYER_ELIMINATED " + player_name + "\n";
+    cout<<"poszlo "<<endl;
+    if(send(gui_sockfd, message.c_str(), message.length(), 0) == -1) {
+        perror("send to gui PLAYER_ELIMINATED: ");
+        return false;
+    }
+    return true;
+}
+
+
+
+bool Client::receive_datagram_from_server() {
+    //rec
+    //aplikuj zdarzenia po kolei
+    return true;
+}

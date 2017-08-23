@@ -1,10 +1,14 @@
+int8_t l_8;
+    uint32_t l_32;
+    uint64_t l_64;
 
-    string test;
+    Datagram test = Datagram();
+    test.clear_datagram();
 
-    list<string> nazwy;
-    nazwy.push_back("korwin");
-    nazwy.push_back("trump");
-    nazwy.push_back("maxkolonko");
+    test.pack_next_int8_bit_value_buffer(-34);
+    test.pack_next_uint32_bit_value_buffer(443);
+    test.pack_next_uint64_bit_value_buffer(33);
 
-    clear_gui_buffer(gui_buffer);
-    new_game_to_gui_buffer(400, 600, nazwy, gui_buffer);
+    test.get_int8_bit_value_fbuffer(l_8, 0);
+    test.get_int32_bit_value_fbuffer(l_32, 1);
+    test.get_int64_bit_value_fbuffer(l_64, 5);
