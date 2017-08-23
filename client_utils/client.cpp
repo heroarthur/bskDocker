@@ -249,5 +249,10 @@ bool Client::send_player_eliminate_to_gui(const string &player_name) {
 bool Client::receive_datagram_from_server() {
     //rec
     //aplikuj zdarzenia po kolei
+    if ((recv_length = recv(server_sockfd, datagram_buffer, DATAGRAM_SIZE, 0)) == -1) {
+        perror("recv from server");
+        return false;
+    }
+    
     return true;
 }

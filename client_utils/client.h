@@ -48,9 +48,9 @@ private:
     struct addrinfo gui_ints, *guiinfo;
 
     char gui_buffer[MESSAGE_FROM_GUI_LENGTH];
+    ssize_t recv_length;
 
     //int next_free_byte;
-    //int recv_length;
 
 private:
     int8_t take_direction_from_gui_message(const string& button_received);
