@@ -46,11 +46,15 @@ bool Client_datagram::read_datagram_from_client(const char* datagram,
 
 
 bool Client_datagram::get_game_id(const char* datagram, uint32_t& game_id) {
+    if(!fields_fit_in_datagram(uint32_len))
+        return false;
     get_int32_bit_value_fbuffer(datagram, game_id, 0);
+    current_event_start += uint32_len;
 }
 
 
 bool Client_datagram::get_next_event_type(const char* datagram, int8_t& event_type) {
+    if(fields_fit_in_datagram(current_event_start + LEN_POS + uint32_len-1));
     get_int8_bit_value_fbuffer(datagram, event_type, current_event_start + LEN_POS);
 }
 
@@ -59,21 +63,26 @@ bool Client_datagram::get_next_event_new_game(const char *datagram, uint32_t &ma
                                               list<string> &player_names) {
 
     get_int32_bit_value_fbuffer(datagram, event_len, current_event_start + LEN_POS);
-    if(!event_within_datagram(current_event_start + event_len-1))
+    if(!fields_fit_in_datagram(current_event_start + event_len - 1 + uint32_len)) {
+        cout<<"zrabane \n";
         return false;
+    }
 
     get_int32_bit_value_fbuffer(datagram, maxx, current_event_start + EVENT_DATA_POS + int8_len);
     get_int32_bit_value_fbuffer(datagram, maxy, current_event_start + EVENT_DATA_POS + int8_len + uint32_len);
     get_int32_bit_value_fbuffer(datagram, crc32, current_event_start + event_len + uint32_len);
-    if(!give_player_list(datagram, player_names))
+    if(!give_player_list(datagram, player_names)) {
+        cout<<"suma";
         return false;
+    }
     current_event_start += event_len + uint32_len + uint32_len;
+    cout<<"siema siema suma kontrolna\n";
     return crc32 == checksum_current_new_game(datagram, event_len);
 }
 
 bool Client_datagram::get_next_event_pixel(const char *datagram, int8_t &player_number, uint32_t &x, uint32_t &y) {
     //sprawdzamy czy dane mieszcza sie w datagramie
-    if(!event_within_datagram(current_event_start + LAST_BYTE_OF_PIXEL_EVENT))
+    if(!fields_fit_in_datagram(next_free_byte + LAST_BYTE_OF_PIXEL_EVENT))
         return false;
     //wyciagamy dane
     get_int32_bit_value_fbuffer(datagram, event_len, current_event_start + LEN_POS);
@@ -89,7 +98,7 @@ bool Client_datagram::get_next_event_pixel(const char *datagram, int8_t &player_
 
 bool Client_datagram::get_next_event_player_eliminate(const char *datagram, int8_t &player_number) {
     //sprawdzamy czy dane mieszcza sie w datagramie
-    if(!event_within_datagram(current_event_start + LAST_BYTE_OF_PLAYER_ELIMINATED_EVENT))
+    if(!fields_fit_in_datagram(current_event_start + LAST_BYTE_OF_PLAYER_ELIMINATED_EVENT))
         return false;
     get_int32_bit_value_fbuffer(datagram, event_len, current_event_start + LEN_POS);
     //wyciagamy dane
@@ -102,7 +111,7 @@ bool Client_datagram::get_next_event_player_eliminate(const char *datagram, int8
 
 bool Client_datagram::get_next_event_game_over(const char *datagram) {
     //sprawdzamy czy dane mieszcza sie w datagramie
-    if(!event_within_datagram(current_event_start + LAST_BYTE_OF_GAME_OVER_EVENT))
+    if(!fields_fit_in_datagram(current_event_start + LAST_BYTE_OF_GAME_OVER_EVENT))
         return false;
     mempcpy(crc32_game_over_buffer, datagram + current_event_start, CRC32_GAME_OVER_POS);
     get_int32_bit_value_fbuffer(datagram, event_len, current_event_start + LEN_POS);

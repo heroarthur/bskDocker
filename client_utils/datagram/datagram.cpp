@@ -10,6 +10,12 @@
 
 
 
+Datagram::Datagram() {
+    next_free_byte = 0;
+    recv_length = 300;
+    current_event_start = 0;
+};
+
 
 void Datagram::clear_datagram(char* datagram) {
     memset(datagram, 0, DATAGRAM_SIZE);
@@ -41,7 +47,6 @@ void Datagram::pack_next_uint64_bit_value_buffer(char* datagram, uint64_t v) {
 
 void Datagram::pack_next_string_buffer(char* datagram, string s) {
     //mempcpy(datagram_buffer+next_free_byte, s.c_str(), s.length());
-    cout<<s<<endl;
     for(int i = 0; i < s.length(); i++) {
         datagram[next_free_byte] = (char)s[i];
         next_free_byte++;
@@ -92,17 +97,19 @@ bool Datagram::compare_checksums_crc32(const string &recv_fields, uint32_t recv_
 }
 
 
-uint32_t Datagram::compute_checksum(const string& fields) {
+uint32_t Datagram::compute_checksum(const char* buff, const int& len) {
     boost::crc_32_type result;
-    result.process_bytes(fields.data(), fields.length());
+    result.process_bytes(buff, len);
     return (uint32_t)result.checksum();
 }
 
 
 
-bool Datagram::event_within_datagram(const int &last_byte_of_event) {
+bool Datagram::fields_fit_in_datagram(const int &last_byte_of_event) {
     return recv_length-1 >= last_byte_of_event;
 }
+
+
 
 bool Datagram::give_player_list(const char* datagram, list<string>& player_names) {
     reset_players_names_buffer();
@@ -110,11 +117,12 @@ bool Datagram::give_player_list(const char* datagram, list<string>& player_names
 
     string t = "";
     for(int i = 0; i < event_len - int8_len - 3*uint32_len; i++) {
+        cout<<"symbol: "<<players_names_buffer[i]<<endl;
         if(MIN_VALID_PLAYER_NAME_SYMBOL <= players_names_buffer[i]
            && players_names_buffer[i] <= MAX_VALID_PLAYER_NAME_SYMBOL) {
             t += players_names_buffer[i];
         }
-        if(players_names_buffer[i] == '\0') {
+        else if(players_names_buffer[i] == '\0') {
             player_names.push_back(t);
             t = "";
         }
@@ -128,26 +136,26 @@ bool Datagram::give_player_list(const char* datagram, list<string>& player_names
 uint32_t Datagram::checksum_current_new_game(const char* datagram, const size_t& event_len) {
     reset_crc32_new_game_buffer();
     mempcpy(crc32_new_game_buffer, datagram + current_event_start, uint32_len + event_len);
-    return compute_checksum(string(crc32_new_game_buffer));
+    return compute_checksum(crc32_new_game_buffer, uint32_len + event_len);
 
 }
 
 uint32_t Datagram::checksum_current_pixel(const char* datagram) {
     reset_crc32_pixel_buffer();
     mempcpy(crc32_pixel_buffer, datagram + current_event_start, CRC32_PIXEL_POS);
-    return compute_checksum(string(crc32_pixel_buffer));
+    return compute_checksum(crc32_pixel_buffer, CRC32_PIXEL_POS);
 }
 
 uint32_t Datagram::checksum_current_player_eliminated(const char* datagram) {
     reset_crc32_player_eliminate_buffer();
     mempcpy(crc32_player_eliminate_buffer, datagram + current_event_start, CRC32_PLAYER_ELIMINATE_POS);
-    return compute_checksum(string(crc32_pixel_buffer));
+    return compute_checksum(crc32_player_eliminate_buffer, CRC32_PLAYER_ELIMINATE_POS);
 }
 
 uint32_t Datagram::checksum_current_game_over(const char* datagram) {
     reset_crc32_game_over_buffer();
     mempcpy(crc32_game_over_buffer, datagram + current_event_start, CRC32_GAME_OVER_POS);
-    return compute_checksum(string(crc32_pixel_buffer));
+    return compute_checksum(crc32_game_over_buffer, CRC32_GAME_OVER_POS);
 }
 
 string Datagram::chain_list(const list<string>& player_names) {

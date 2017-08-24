@@ -37,13 +37,13 @@ bool Server_datagram::read_datagram_from_client(const char* datagram,
 
 
 bool Server_datagram::data_will_fit_to_datagram(const int &last_byte_pos) {
-    return DATAGRAM_SIZE >= last_byte_pos;
+    return DATAGRAM_SIZE-1 >= last_byte_pos;
 }
 
 
 int Server_datagram::length_of_new_game_event(const string& player_names) {
     auto length_of_names = (int)player_names.length();
-    length_of_names += 1; // '\0' after last name
+    //length_of_names += 1; // '\0' after last name
     return SIZE_BYTE_OF_NEW_GAME_to_maxy + length_of_names;
 }
 
@@ -53,22 +53,23 @@ bool Server_datagram::pack_new_game_to_datagram(char* datagram, const uint32_t& 
 
     string name_list = chain_list(player_names);
     int new_game_event_len = length_of_new_game_event(name_list);
-    if(!data_will_fit_to_datagram(current_event_start + new_game_event_len -1))
+    if(!data_will_fit_to_datagram(next_free_byte + new_game_event_len + uint32_len -1))
         return false;
     pack_next_uint32_bit_value_buffer(datagram, new_game_event_len - uint32_len);
     pack_next_uint32_bit_value_buffer(datagram, event_no);
     pack_next_int8_bit_value_buffer(datagram, EVENT_TYPE_NEW_GAME);
     pack_next_uint32_bit_value_buffer(datagram, maxx);
     pack_next_uint32_bit_value_buffer(datagram, maxy);
-    pack_next_string_buffer(datagram, name_list);
-    pack_char_to_datagram(datagram, '\0');
+    pack_name_list_buffer(datagram, player_names);
+    pack_next_uint32_bit_value_buffer(datagram, checksum_current_new_game(datagram, new_game_event_len));
     return true;
 }
 
 bool Server_datagram::pack_pixel_to_datagram(char* datagram, const uint32_t& event_no, const int8_t& player_number,
                                              const uint32_t&x, const uint32_t&y) {
-    if(!data_will_fit_to_datagram(current_event_start + SIZE_BYTE_OF_PIXEL_EVENT -1))
+    if(!data_will_fit_to_datagram(next_free_byte + SIZE_BYTE_OF_PIXEL_EVENT -1))
         return false;
+
     pack_next_uint32_bit_value_buffer(datagram, PIXEL_EVENTS_FIELDS_SIZE);
     pack_next_uint32_bit_value_buffer(datagram, event_no);
     pack_next_int8_bit_value_buffer(datagram, EVENT_TYPE_PIXEL);
@@ -90,6 +91,7 @@ bool Server_datagram::pack_player_eliminate(char* datagram, const uint32_t& even
     pack_next_uint32_bit_value_buffer(datagram, checksum_current_player_eliminated(datagram));
     return true;
 }
+
 
 bool Server_datagram::pack_game_over_to_datagram(char* datagram, const uint32_t& event_no) {
 

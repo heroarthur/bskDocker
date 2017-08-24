@@ -60,6 +60,11 @@ const int8_t EVENT_TYPE_GAME_OVER = 3;
 
 
 
+enum unpack_event_flag {
+    UNPACK_SUCCESFULL,
+    CORRECT_CRC32,
+     };
+
 
 class Datagram {
 
@@ -90,7 +95,7 @@ protected:
     uint32_t checksum_current_player_eliminated(const char* datagram);
     uint32_t checksum_current_game_over(const char* datagram);
 
-    uint32_t compute_checksum(const string& fields);
+    uint32_t compute_checksum(const char* buff, const int& len);
 
 
 
@@ -101,7 +106,7 @@ protected:
     void get_string_fbuffer(const char* datagram, string& s, int start_in_datagram, int end_in_datagram);
 
     bool compare_checksums_crc32(const string &recv_fields, uint32_t recv_checksum);
-    bool event_within_datagram(const int &last_byte_of_event);
+    bool fields_fit_in_datagram(const int &last_byte_of_event);
 
     bool give_player_list(const char* datagram, list<string>& player_names);
     string chain_list(const list<string>& player_names);
@@ -116,6 +121,8 @@ public:
     void pack_name_list_buffer(char* datagram, const list<string>& l);
     void pack_char_to_datagram(char* datagram, const char s) {datagram[next_free_byte] = s; next_free_byte++;}
 
+    Datagram();
+    int get_next_free_byte() {return next_free_byte;}
 
 };
 

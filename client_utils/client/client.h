@@ -78,8 +78,9 @@ public:
 
     bool update_direction();
     bool send_datagram_to_server();
-    bool receive_datagram_from_server();
 
+    bool receive_datagram_from_server();
+    bool try_apply_events
 
 
 };
