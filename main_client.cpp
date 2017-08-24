@@ -17,9 +17,9 @@
 #include <sstream>
 #include <list>
 #include <fcntl.h>
-#include "client_utils/client_utils.h"
-#include "client_utils/client.h"
-#include "client_utils/datagram.h"
+#include "client_utils/client/client_utils.h"
+#include "client_utils/client/client.h"
+#include "client_utils/datagram/datagram.h"
 #include<time.h>
 
 using namespace std;

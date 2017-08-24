@@ -28,9 +28,9 @@ const int LEN_POS = 0;
 const int EVENT_NO = 4;
 const int EVENT_TYPE = 8;
 const int EVENT_DATA_POS = 9;
-const int CRC32_PIXEL_POS = EVENT_DATA_POS + 9;
-const int CRC32_PLAYER_ELIMINATE_POS = EVENT_DATA_POS + 1;
-const int CRC32_GAME_OVER_POS = EVENT_DATA_POS;
+const size_t CRC32_PIXEL_POS = EVENT_DATA_POS + 9;
+const size_t CRC32_PLAYER_ELIMINATE_POS = EVENT_DATA_POS + 1;
+const size_t CRC32_GAME_OVER_POS = EVENT_DATA_POS;
 const int uint64_len = 8;
 const int uint32_len = 4;
 const int int8_len = 1;
@@ -41,6 +41,23 @@ const int LAST_BYTE_OF_PLAYER_ELIMINATED_EVENT = CRC32_PLAYER_ELIMINATE_POS + ui
 const int LAST_BYTE_OF_GAME_OVER_EVENT = CRC32_GAME_OVER_POS + uint64_len-1;
 
 
+const int SIZE_BYTE_OF_NEW_GAME_to_maxy = 17;
+const int SIZE_BYTE_OF_PIXEL_EVENT = CRC32_PIXEL_POS + uint64_len;
+const int SIZE_BYTE_OF_PLAYER_ELIMINATE_EVENT = CRC32_PLAYER_ELIMINATE_POS + uint64_len;
+const int SIZE_BYTE_OF_GAME_OVER_EVENT = CRC32_GAME_OVER_POS + uint64_len;
+
+
+const uint32_t NEW_GAME_EVENTS_FIELDS_to_maxy = 13;
+const uint32_t PIXEL_EVENTS_FIELDS_SIZE = 13;
+const uint32_t PLAYER_ELIMINATED_EVENTS_FIELDS_SIZE = 6;
+const uint32_t GAME_OVER_EVENTS_FIELDS_SIZE = 5;
+
+
+const int8_t EVENT_TYPE_NEW_GAME = 0;
+const int8_t EVENT_TYPE_PIXEL = 1;
+const int8_t EVENT_TYPE_PLAYER_ELIMINATED = 2;
+const int8_t EVENT_TYPE_GAME_OVER = 3;
+
 
 
 
@@ -48,7 +65,7 @@ class Datagram {
 
 protected:
     //char datagram_buffer[DATAGRAM_SIZE+1];// \0
-    char crc32_new_game_buffer[DATAGRAM_SIZE+1];
+    char crc32_new_game_buffer[DATAGRAM_SIZE];
     char crc32_pixel_buffer[CRC32_PIXEL_POS];
     char crc32_player_eliminate_buffer[CRC32_PLAYER_ELIMINATE_POS];
     char crc32_game_over_buffer[CRC32_GAME_OVER_POS];
@@ -57,9 +74,23 @@ protected:
 
     int next_free_byte;
     int recv_length;
-    int next_event_start;
+    int current_event_start;
     uint32_t event_len;
     uint32_t crc32;
+
+protected:
+    void reset_crc32_new_game_buffer() {memset(crc32_new_game_buffer, 0 , DATAGRAM_SIZE);}
+    void reset_crc32_pixel_buffer() {memset(crc32_pixel_buffer, 0 , CRC32_PIXEL_POS);}
+    void reset_crc32_player_eliminate_buffer() {memset(crc32_player_eliminate_buffer, 0 , CRC32_PLAYER_ELIMINATE_POS);}
+    void reset_crc32_game_over_buffer() {memset(crc32_game_over_buffer, 0 , CRC32_GAME_OVER_POS);}
+    void reset_players_names_buffer() {{memset(players_names_buffer, 0 , DATAGRAM_SIZE);}}
+
+    uint32_t checksum_current_new_game(const char* datagram, const size_t& event_len);
+    uint32_t checksum_current_pixel(const char* datagram);
+    uint32_t checksum_current_player_eliminated(const char* datagram);
+    uint32_t checksum_current_game_over(const char* datagram);
+
+    uint32_t compute_checksum(const string& fields);
 
 
 
@@ -69,11 +100,11 @@ protected:
     void get_int64_bit_value_fbuffer(const char* datagram, uint64_t& v, int start_in_datagram);
     void get_string_fbuffer(const char* datagram, string& s, int start_in_datagram, int end_in_datagram);
 
-    bool checksum_crc32(const string& recv_fields, uint32_t recv_checksum);
-    bool event_within_datagram(const int &end);
+    bool compare_checksums_crc32(const string &recv_fields, uint32_t recv_checksum);
+    bool event_within_datagram(const int &last_byte_of_event);
 
     bool give_player_list(const char* datagram, list<string>& player_names);
-
+    string chain_list(const list<string>& player_names);
 
 public:
     void clear_datagram(char* datagram);
@@ -82,7 +113,8 @@ public:
     void pack_next_uint32_bit_value_buffer(char* datagram, uint32_t v);
     void pack_next_uint64_bit_value_buffer(char* datagram, uint64_t v);
     void pack_next_string_buffer(char* datagram, string s);
-
+    void pack_name_list_buffer(char* datagram, const list<string>& l);
+    void pack_char_to_datagram(char* datagram, const char s) {datagram[next_free_byte] = s; next_free_byte++;}
 
 
 };
@@ -132,6 +164,16 @@ public:
     bool read_datagram_from_client(const char* datagram,
                                    uint64_t& session_id, int8_t& turn_direction,
                                    uint32_t& next_expected_event_no, string& player_name);
+
+    bool pack_new_game_to_datagram(char* datagram, const uint32_t& event_no, const uint32_t& maxx, const uint32_t& maxy, const list<string>& player_names);
+    bool pack_pixel_to_datagram(char* datagram, const uint32_t& event_no, const int8_t& player_number, const uint32_t&x, const uint32_t&y);
+    bool pack_player_eliminate(char* datagram, const uint32_t& event_no, const int8_t& player_number);
+    bool pack_game_over_to_datagram(char* datagram, const uint32_t& event_no);
+
+
+private:
+    bool data_will_fit_to_datagram(const int &last_byte_pos);
+    int length_of_new_game_event(const string& player_names);
 
 };
 
