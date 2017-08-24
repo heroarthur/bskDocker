@@ -12,6 +12,7 @@
 #include <list>
 #include "client_clock.h"
 #include "../datagram/datagram.h"
+#include <vector>
 
 
 using namespace std;
@@ -19,21 +20,45 @@ using namespace std;
 const int MESSAGE_FROM_GUI_LENGTH = 20;
 const size_t CLIENT_DATAGRAM_NUMERIC_FIELDS_LENGTH = 13; //64 + 32 + 8 bits
 
+
+enum analiza_datagramu {end_analize_datagram = true, end_client_program = false, next_event = true};
+
 class Client {
 
 private:
+    /*************player logic****************/
     int8_t current_turn_direction;
-    uint32_t current_game_id;
-    uint32_t next_expected_event_no;
     int64_t last_sent_event_number;
     uint64_t session_id;
     string player_name;
     Clock client_clock = Clock();
-    Client_datagram datagram;
-    size_t client_datagram_length;
 
+
+    /************game logic***************/
+    uint32_t current_game_id;
+    uint32_t next_expected_event_no;
     uint32_t maxx = 500, maxy = 500;
-    list<string> current_players_names; //cleared with new game, change during game
+    list<string> current_game_name_list; //cleared with new game, change during game
+    vector<string> current_players_names_arr;
+    vector<bool> players_not_eliminated;
+    int8_t number_of_players;
+    int8_t not_eliminated_players_number;
+    bool game_continues;
+    bool game_over;
+
+    /********temporary data from datagram**********/
+    char gui_buffer[MESSAGE_FROM_GUI_LENGTH];
+    ssize_t recv_length;
+    int8_t recv_event_type;
+    uint32_t recv_x, recv_y;
+    int8_t recv_player_number;
+    uint32_t recv_game_id;
+    uint32_t finished_game_id;
+    uint32_t tmp_event_len;
+    uint32_t recv_event_no;
+    uint32_t recv_maxx, recv_maxy;
+    Client_datagram client_datagram;
+    size_t client_datagram_length;
 
 
 
@@ -47,13 +72,26 @@ private:
     int gui_sockfd;
     struct addrinfo gui_ints, *guiinfo;
 
-    char gui_buffer[MESSAGE_FROM_GUI_LENGTH];
-    ssize_t recv_length;
+
 
     //int next_free_byte;
 
 private:
     int8_t take_direction_from_gui_message(const string& button_received);
+
+    bool verify_new_game(const int& maxx, const int& maxy, const list<string>& player_names);
+    bool verify_pixel_event(const int& player_number, const int& x, const int& y);
+    bool verify_player_eliminate(const int& player_number);
+    bool verify_game_over();
+
+    bool x_in_board(const uint32_t& x) {return 0 <= x && x <= maxx;}
+
+    bool y_in_board(const uint32_t& y) {return 0 <= y && y <= maxy;}
+
+    bool player_number_correct(const int8_t& player_number)
+        {return 0 <= player_number && player_number <= not_eliminated_players_number;}
+
+
 
 public:
     char datagram_buffer[DATAGRAM_SIZE+1];
@@ -80,7 +118,14 @@ public:
     bool send_datagram_to_server();
 
     bool receive_datagram_from_server();
-    bool try_apply_events
+
+    bool try_to_apply_new_game();
+    bool try_to_apply_pixel();
+    bool try_to_apply_player_eliminated();
+    bool try_to_apply_game_over();
+
+    bool try_apply_event();
+
 
 
 };

@@ -76,12 +76,15 @@ protected:
     char crc32_game_over_buffer[CRC32_GAME_OVER_POS];
 
     char players_names_buffer[DATAGRAM_SIZE];
+    int players_names_buffer_length;
 
     int next_free_byte;
     int recv_length;
     int current_event_start;
     uint32_t event_len;
+    uint32_t len_crc32;
     uint32_t crc32;
+
 
 protected:
     void reset_crc32_new_game_buffer() {memset(crc32_new_game_buffer, 0 , DATAGRAM_SIZE);}
@@ -109,10 +112,12 @@ protected:
     bool fields_fit_in_datagram(const int &last_byte_of_event);
 
     bool give_player_list(const char* datagram, list<string>& player_names);
+    void copy_names_to_players_names_buffer(const char* datagram);
+
     string chain_list(const list<string>& player_names);
 
 public:
-    void clear_datagram(char* datagram);
+    void clear_datagram(char * datagram);
 
     void pack_next_int8_bit_value_buffer(char* datagram, int8_t v);
     void pack_next_uint32_bit_value_buffer(char* datagram, uint32_t v);
@@ -123,6 +128,11 @@ public:
 
     Datagram();
     int get_next_free_byte() {return next_free_byte;}
+    void set_recv_length(int len) {recv_length = len;}
+
+    bool event_checksum_correct(const char* datagram, size_t len);
+    void go_to_next_event(int event_fields_len);
+
 
 };
 
@@ -132,8 +142,8 @@ public:
 class Client_datagram: public Datagram {
 public:
     //klient
-    //-odbiera datagram
-    //-tworzy wlasny datagram
+    //-odbiera client_datagram
+    //-tworzy wlasny client_datagram
     void create_datagram_for_server(char* datagram,
                                      const uint64_t &session_id, const int8_t &turn_direction,
                                      const uint32_t &next_expected_event_no, const string& player_name);
@@ -143,6 +153,9 @@ public:
                                    uint32_t& next_expected_event_no, string& player_name);
 
     bool get_game_id(const char* datagram, uint32_t& game_id);
+    bool get_event_no(const char* datagram, uint32_t& event_no);
+
+    bool get_next_event_length(const char* datagram, uint32_t& len);
     bool get_next_event_type(const char* datagram, int8_t& event_type);
     //gdy ponizsze funkcje zwracaja true, to znaczy ze wczytano sensowne dane, ale wciaz nalezy je sprawdzic
     bool get_next_event_new_game(const char* datagram, uint32_t& maxx, uint32_t& maxy, list<string>& player_names);
@@ -150,11 +163,11 @@ public:
     bool get_next_event_player_eliminate(const char* datagram, int8_t& player_number);
     bool get_next_event_game_over(const char* datagram);
 
-
+    bool datagram_starts_with_new_game(const char* datagram);
 
     //void receive_datagram();
 private:
-    //-analizuje datagram odebrany
+    //-analizuje client_datagram odebrany
     //wysyla do gui
     //void apply_next_event();
     //void send_to_gui();

@@ -39,9 +39,9 @@ int main (int argc, char *argv[]) {
 
 
     /*
-    bool pack_pixel_to_datagram(char* datagram, const uint32_t& event_no, const int8_t& player_number, const uint32_t&x, const uint32_t&y);
-    bool pack_player_eliminate(char* datagram, const uint32_t& event_no, const int8_t& player_number);
-    bool pack_game_over_to_datagram(char* datagram, const uint32_t& event_no);*/
+    bool pack_pixel_to_datagram(char* client_datagram, const uint32_t& event_no, const int8_t& player_number, const uint32_t&x, const uint32_t&y);
+    bool pack_player_eliminate(char* client_datagram, const uint32_t& event_no, const int8_t& player_number);
+    bool pack_game_over_to_datagram(char* client_datagram, const uint32_t& event_no);*/
     char datagram[DATAGRAM_SIZE+1];
 
     uint32_t next_event_no_pack = 1;
@@ -101,7 +101,7 @@ int main (int argc, char *argv[]) {
         player_number_pack = i;
         x = i*100;
         y = i*100;
-        if(!serv.pack_pixel_to_datagram(datagram, next_event_no_pack, player_number_pack, x, y)){
+        if(!serv.pack_pixel_to_datagram(client_datagram, next_event_no_pack, player_number_pack, x, y)){
             cout<<"KONIEC MIEJSCA SERVER i = "<<i<<endl;
             break;
         }
@@ -115,7 +115,7 @@ int main (int argc, char *argv[]) {
 
 /*
     for(int i = 0; i < 100; i++) {
-        if(!dat.get_next_event_pixel(datagram, player_number_recv, x_recv, y_recv)){
+        if(!dat.get_next_event_pixel(client_datagram, player_number_recv, x_recv, y_recv)){
             cout<<"KONIEC MIEJSCA KLIENT i = "<<i<<endl;
             break;
         }
@@ -128,13 +128,13 @@ int main (int argc, char *argv[]) {
 */
 
 
-    //bool get_next_event_pixel(const char* datagram, int8_t& player_number, uint32_t&x, uint32_t&y);
-    //bool get_next_event_player_eliminate(const char* datagram, int8_t& player_number);
-    //bool get_next_event_game_over(const char* datagram);
+    //bool get_next_event_pixel(const char* client_datagram, int8_t& player_number, uint32_t&x, uint32_t&y);
+    //bool get_next_event_player_eliminate(const char* client_datagram, int8_t& player_number);
+    //bool get_next_event_game_over(const char* client_datagram);
 
 
-    //datagram.create_datagram_for_server(client.datagram_buffer, l_64, l_8, l_32, player_name);
-    //datagram.read_datagram_from_client(client.datagram_buffer, session_id, turn_dir, next_event_number, player_name_recv);
+    //client_datagram.create_datagram_for_server(client.datagram_buffer, l_64, l_8, l_32, player_name);
+    //client_datagram.read_datagram_from_client(client.datagram_buffer, session_id, turn_dir, next_event_number, player_name_recv);
 
     //cout<<"session_id "<<session_id<<endl;
     //cout<<"turn_dir "<<(int)turn_dir<<endl;

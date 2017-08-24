@@ -39,13 +39,13 @@ Client::Client (string name,
     game_server_port = server_port;
     game_ui_host = ui_host;
     game_ui_port = ui_port;
-    datagram = Client_datagram();
+    client_datagram = Client_datagram();
     client_datagram_length = CLIENT_DATAGRAM_NUMERIC_FIELDS_LENGTH + player_name.length();
 
-    current_players_names.push_back("karol");
-    current_players_names.push_back("max");
-    //current_players_names.push_back("torawareta");
-    //current_players_names.push_back("idz_pan_do_domu");
+    current_game_name_list.push_back("karol");
+    current_game_name_list.push_back("max");
+    //current_game_name_list.push_back("torawareta");
+    //current_game_name_list.push_back("idz_pan_do_domu");
 }
 
 bool Client::connect_to_server() {
@@ -194,7 +194,7 @@ bool Client::should_sent_next_datagram() {
 }
 
 bool Client::send_datagram_to_server() {
-    datagram.create_datagram_for_server(datagram_buffer,
+    client_datagram.create_datagram_for_server(datagram_buffer,
                                         session_id, current_turn_direction,
                                         next_expected_event_no, player_name);
 
@@ -210,7 +210,7 @@ bool Client::send_datagram_to_server() {
 bool Client::send_new_game_to_gui() {
     string message = "NEW_GAME " + to_string(maxx) + " " + to_string(maxy);
 
-    for (auto i : current_players_names){
+    for (auto i : current_game_name_list){
         message += " " + i;
     }
     message += "\n";
@@ -247,12 +247,139 @@ bool Client::send_player_eliminate_to_gui(const string &player_name) {
 
 
 bool Client::receive_datagram_from_server() {
-    //rec
-    //aplikuj zdarzenia po kolei
     if ((recv_length = recv(server_sockfd, datagram_buffer, DATAGRAM_SIZE, 0)) == -1) {
         perror("recv from server");
         return false;
     }
-    
-    return true;
+    client_datagram.clear_datagram(datagram_buffer);
+    client_datagram.set_recv_length(recv_length);
+    client_datagram.get_game_id(datagram_buffer, recv_game_id);
+
+    if(recv_game_id != current_game_id) {
+        if(recv_game_id == finished_game_id) return end_analize_datagram;
+        if(!client_datagram.datagram_starts_with_new_game(datagram_buffer)) return end_analize_datagram;
+    }
+
+    while(client_datagram.get_next_free_byte() <= recv_length-1) {
+
+        if(!client_datagram.get_next_event_length(datagram_buffer, tmp_event_len)) return end_client_program;
+        if(!client_datagram.event_checksum_correct(datagram_buffer, tmp_event_len)) return end_analize_datagram;
+
+        client_datagram.get_event_no(datagram_buffer, recv_event_no);
+        client_datagram.get_next_event_type(datagram_buffer, recv_event_type);
+
+
+    }
+    return end_analize_datagram;
 }
+
+
+bool Client::try_apply_event() {
+    if(recv_event_type == EVENT_TYPE_NEW_GAME) {
+        return try_to_apply_new_game();
+    }
+    if(recv_event_no != next_expected_event_no)
+        return end_analize_datagram; //TO DO przejdz do nastepnego eventu gdy event_no juz masz
+    if(recv_event_type == EVENT_TYPE_PIXEL) {
+        return try_to_apply_pixel();
+    }
+    if(recv_event_type == EVENT_TYPE_PLAYER_ELIMINATED) {
+        return try_to_apply_player_eliminated();
+    }
+    if(recv_event_type == EVENT_TYPE_GAME_OVER) {
+        return try_to_apply_game_over();
+    }
+    return next_event;
+}
+
+
+bool Client::try_to_apply_new_game() {
+    client_datagram.get_next_event_new_game(datagram_buffer, recv_maxx, recv_maxy, current_game_name_list);
+    if(!verify_new_game(recv_maxx, recv_maxy, current_game_name_list))
+        return end_client_program;
+
+    //start new game
+    next_expected_event_no = 1;
+    game_continues = true;
+    game_over = false;
+    not_eliminated_players_number = number_of_players = current_game_name_list.size();
+    current_game_id = recv_game_id;
+    maxx = recv_maxx;
+    maxy = recv_maxy;
+    current_players_names_arr.clear();
+    players_not_eliminated.clear();
+
+    for(string name: current_game_name_list){
+        current_players_names_arr.push_back(name);
+        players_not_eliminated.push_back(true);
+    }
+
+}
+
+
+bool Client::try_to_apply_pixel() {
+    client_datagram.get_next_event_pixel(datagram_buffer, recv_player_number, recv_x, recv_y);
+    if(!verify_pixel_event(recv_player_number, recv_x, recv_y))
+        return end_client_program;
+    //apply
+    next_expected_event_no++;
+    send_pixel_to_gui(recv_x, recv_y, current_players_names_arr[recv_player_number]);
+}
+
+
+bool Client::try_to_apply_player_eliminated() {
+    client_datagram.get_next_event_player_eliminate(datagram_buffer, recv_player_number);
+    if(!verify_player_eliminate(recv_player_number))
+        return end_client_program;
+    next_expected_event_no++;
+    players_not_eliminated[recv_player_number] = false;
+    not_eliminated_players_number--;
+    send_player_eliminate_to_gui(current_players_names_arr[recv_player_number]);
+}
+
+
+bool Client::try_to_apply_game_over() {
+    client_datagram.get_next_event_game_over(datagram_buffer);
+    if(!verify_game_over())
+        return end_client_program;
+    //apply
+    next_expected_event_no++;
+    game_over = true;
+    game_continues = false;
+}
+
+
+bool Client::verify_new_game(const int& maxx, const int& maxy, const list<string>& player_names) {
+    list<string> copy = player_names;
+    copy.unique();
+    if(player_names.size() == copy.size() && recv_event_type == 0)
+        return true;
+    cout<<"wrong data in new game \n";
+    return false;
+}
+
+bool Client::verify_pixel_event(const int& player_number, const int& x, const int& y) {
+    if(player_number_correct(player_number)) {
+        return x_in_board(x) && y_in_board(y) && players_not_eliminated[player_number];
+    }
+    cout<<"wrong data in pixel event \n";
+    return false;
+}
+
+bool Client::verify_player_eliminate(const int& player_number) {
+    if(player_number_correct(player_number)) {
+        return players_not_eliminated[player_number];
+    }
+    cout<<"wrong data in player eliminated \n";
+    return false;
+}
+
+bool Client::verify_game_over() {
+    if(number_of_players == 1 && game_continues && !game_over)
+        return true;
+    cout<<"wrong data in game over \n";
+    return false;
+}
+
+
+

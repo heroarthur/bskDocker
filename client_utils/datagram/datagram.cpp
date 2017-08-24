@@ -17,8 +17,9 @@ Datagram::Datagram() {
 };
 
 
-void Datagram::clear_datagram(char* datagram) {
+void Datagram::clear_datagram(char * datagram) {
     memset(datagram, 0, DATAGRAM_SIZE);
+    current_event_start = 0;
     next_free_byte = 0;
     recv_length = 0;
 }
@@ -111,30 +112,52 @@ bool Datagram::fields_fit_in_datagram(const int &last_byte_of_event) {
 
 
 
-bool Datagram::give_player_list(const char* datagram, list<string>& player_names) {
+void Datagram::copy_names_to_players_names_buffer(const char *datagram) {
     reset_players_names_buffer();
-    mempcpy(players_names_buffer, datagram + EVENT_DATA_POS + 2*uint32_len, event_len - int8_len - 3*uint32_len);
+    mempcpy(players_names_buffer, datagram + current_event_start + EVENT_DATA_POS + 2*uint32_len, event_len - int8_len - 3*uint32_len);
+    players_names_buffer_length = event_len - int8_len - 3*uint32_len;
+}
 
+bool Datagram::give_player_list(const char* datagram, list<string>& player_names) {
     string t = "";
-    for(int i = 0; i < event_len - int8_len - 3*uint32_len; i++) {
+    for(int i = 0; i < players_names_buffer_length; i++) {
         cout<<"symbol: "<<players_names_buffer[i]<<endl;
         if(MIN_VALID_PLAYER_NAME_SYMBOL <= players_names_buffer[i]
            && players_names_buffer[i] <= MAX_VALID_PLAYER_NAME_SYMBOL) {
             t += players_names_buffer[i];
         }
         else if(players_names_buffer[i] == '\0') {
+            if(t == "")
+                return false;
             player_names.push_back(t);
             t = "";
         }
         else
             return false;
     }
-    return true;
+    return players_names_buffer[players_names_buffer_length-1] == '\0';
 }
 
 
+
+bool Datagram::event_checksum_correct(const char* datagram, size_t len) {
+    if(!fields_fit_in_datagram(current_event_start + 2*uint32_len + len -1))
+        return false;
+    boost::crc_32_type result;
+    result.process_bytes(datagram + current_event_start + uint32_len, len);
+    get_int32_bit_value_fbuffer(datagram, len_crc32, current_event_start + len + uint32_len);
+    return len_crc32 == result.checksum();
+}
+
+
+void Datagram::go_to_next_event(int event_fields_len) {
+    current_event_start += event_fields_len + 2*uint32_len;
+}
+
+
+
 uint32_t Datagram::checksum_current_new_game(const char* datagram, const size_t& event_len) {
-    reset_crc32_new_game_buffer();
+
     mempcpy(crc32_new_game_buffer, datagram + current_event_start, uint32_len + event_len);
     return compute_checksum(crc32_new_game_buffer, uint32_len + event_len);
 
@@ -165,5 +188,6 @@ string Datagram::chain_list(const list<string>& player_names) {
     }
     return s;
 }
+
 
 

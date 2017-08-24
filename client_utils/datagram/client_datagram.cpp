@@ -46,17 +46,42 @@ bool Client_datagram::read_datagram_from_client(const char* datagram,
 
 
 bool Client_datagram::get_game_id(const char* datagram, uint32_t& game_id) {
-    if(!fields_fit_in_datagram(uint32_len))
+    if(!fields_fit_in_datagram(uint32_len-1))
         return false;
     get_int32_bit_value_fbuffer(datagram, game_id, 0);
     current_event_start += uint32_len;
 }
 
 
+bool Client_datagram::get_event_no(const char* datagram, uint32_t& event_no) {
+    if(!fields_fit_in_datagram(current_event_start + 2*uint32_len -1))
+        return false;
+    get_int32_bit_value_fbuffer(datagram, event_no, current_event_start + uint32_len);
+}
+
+
+
+bool Client_datagram::get_next_event_length(const char* datagram, uint32_t& len) {
+    if(!fields_fit_in_datagram(current_event_start + uint32_len -1))
+        return false;
+    get_int32_bit_value_fbuffer(datagram, len, current_event_start);
+}
+
+
+
 bool Client_datagram::get_next_event_type(const char* datagram, int8_t& event_type) {
     if(fields_fit_in_datagram(current_event_start + LEN_POS + uint32_len-1));
     get_int8_bit_value_fbuffer(datagram, event_type, current_event_start + LEN_POS);
 }
+
+
+bool Client_datagram::datagram_starts_with_new_game(const char* datagram) {
+    int8_t event_type;
+    get_next_event_type(datagram, event_type);
+    //get_next_event_t
+    return event_type == EVENT_TYPE_NEW_GAME;
+}
+
 
 
 bool Client_datagram::get_next_event_new_game(const char *datagram, uint32_t &maxx, uint32_t &maxy,
