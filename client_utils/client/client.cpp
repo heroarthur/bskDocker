@@ -44,8 +44,18 @@ Client::Client (string name,
 
     current_game_name_list.push_back("karol");
     current_game_name_list.push_back("max");
-    //current_game_name_list.push_back("torawareta");
-    //current_game_name_list.push_back("idz_pan_do_domu");
+
+    //game_logic
+    next_expected_event_no = 0;
+    game_continues = false;
+    game_over = false;
+    not_eliminated_players_number = number_of_players = 0;
+    current_game_id = 0;
+    maxx = 400;
+    maxy = 400;
+    current_game_name_list.clear();
+    current_players_names_arr.clear();
+    players_not_eliminated.clear();
 }
 
 bool Client::connect_to_server() {
@@ -226,7 +236,7 @@ bool Client::send_new_game_to_gui() {
 
 bool Client::send_pixel_to_gui(const int &x, const int &y, const string &player_name) {
     string message = "PIXEL " + to_string(x) + " " + to_string(y) + " " + player_name + "\n";
-
+    cout<<message<<endl;
     if(send(gui_sockfd, message.c_str(), message.length(), 0) == -1) {
         perror("send to gui PIXEL: ");
         return false;
@@ -251,6 +261,7 @@ bool Client::receive_datagram_from_server() {
         perror("recv from server");
         return false;
     }
+
     client_datagram.clear_datagram(datagram_buffer);
     client_datagram.set_recv_length(recv_length);
     client_datagram.get_game_id(datagram_buffer, recv_game_id);
@@ -267,6 +278,60 @@ bool Client::receive_datagram_from_server() {
 
         client_datagram.get_event_no(datagram_buffer, recv_event_no);
         client_datagram.get_next_event_type(datagram_buffer, recv_event_type);
+        if(!try_apply_event())
+            return end_client_program;
+
+    }
+    return end_analize_datagram;
+}
+
+
+bool Client::receive_datagram_from_server_test(const char* datagram, int recv_len_test) {
+
+
+    client_datagram.clear_datagram(datagram_buffer);
+
+    mempcpy(datagram_buffer, datagram, recv_len_test);//test
+
+    client_datagram.set_recv_length(recv_len_test);
+    client_datagram.get_game_id(datagram_buffer, recv_game_id);
+
+    if(recv_game_id != current_game_id) {
+        cout<<"zle game id\n";
+        if(recv_game_id == finished_game_id) return end_analize_datagram;
+        if(!client_datagram.datagram_starts_with_new_game(datagram_buffer)) return end_analize_datagram;
+    }
+
+    while(client_datagram.get_next_free_byte() <= recv_length-1) {
+        sleep(1);
+        if(!client_datagram.get_next_event_length(datagram_buffer, tmp_event_len)) {
+            cout<<"next_event_length| recv_len = "<<client_datagram.get_recv_length()<<endl;
+            return end_client_program;
+        }
+        if(!client_datagram.event_checksum_correct(datagram_buffer, tmp_event_len)) {
+            cout<<"tmp_event_len "<<tmp_event_len<<endl;
+            cout<<"event_checksum_correct\n";
+            return end_analize_datagram;
+        }
+
+        client_datagram.get_event_no(datagram_buffer, recv_event_no);
+        client_datagram.get_next_event_type(datagram_buffer, recv_event_type);
+
+        if(recv_event_type == EVENT_TYPE_NEW_GAME) {
+            cout<<"PROBA NEW GAME \n";
+            if(!try_to_apply_new_game())
+                return end_client_program;
+        }
+        else {
+            if(recv_event_no != next_expected_event_no) {
+                cout<<"EVENT NO WRONG\n";
+                return end_analize_datagram; //TO DO przejdz do nastepnego eventu gdy event_no juz masz
+            }
+            if(!try_apply_event())
+                return end_client_program;
+        }
+
+        cout<<"UZYSKANO EVENT TYPE "<<(int)recv_event_type<<endl;
 
 
     }
@@ -275,18 +340,18 @@ bool Client::receive_datagram_from_server() {
 
 
 bool Client::try_apply_event() {
-    if(recv_event_type == EVENT_TYPE_NEW_GAME) {
-        return try_to_apply_new_game();
-    }
-    if(recv_event_no != next_expected_event_no)
-        return end_analize_datagram; //TO DO przejdz do nastepnego eventu gdy event_no juz masz
+
+
     if(recv_event_type == EVENT_TYPE_PIXEL) {
+        cout<<"PROBA apply_pixel \n";
         return try_to_apply_pixel();
     }
     if(recv_event_type == EVENT_TYPE_PLAYER_ELIMINATED) {
+        cout<<"PROBA player_eliminated \n";
         return try_to_apply_player_eliminated();
     }
     if(recv_event_type == EVENT_TYPE_GAME_OVER) {
+        cout<<"PROBA game_over \n";
         return try_to_apply_game_over();
     }
     return next_event;
@@ -295,8 +360,10 @@ bool Client::try_apply_event() {
 
 bool Client::try_to_apply_new_game() {
     client_datagram.get_next_event_new_game(datagram_buffer, recv_maxx, recv_maxy, current_game_name_list);
-    if(!verify_new_game(recv_maxx, recv_maxy, current_game_name_list))
+    if(!verify_new_game(recv_maxx, recv_maxy, current_game_name_list)) {
+        cout<<"didnt veryfing new game end program\n";
         return end_client_program;
+    }
 
     //start new game
     next_expected_event_no = 1;
@@ -306,6 +373,8 @@ bool Client::try_to_apply_new_game() {
     current_game_id = recv_game_id;
     maxx = recv_maxx;
     maxy = recv_maxy;
+    cout<<"maxx i maxy "<<maxx<<" "<<maxy<<endl;
+
     current_players_names_arr.clear();
     players_not_eliminated.clear();
 
@@ -313,7 +382,8 @@ bool Client::try_to_apply_new_game() {
         current_players_names_arr.push_back(name);
         players_not_eliminated.push_back(true);
     }
-
+    cout<<"UDALO SE NEW GAME \n";
+    send_new_game_to_gui();
 }
 
 
@@ -323,6 +393,7 @@ bool Client::try_to_apply_pixel() {
         return end_client_program;
     //apply
     next_expected_event_no++;
+    //cout<<"send recv_x, recv_y , player_names "<<recv_x<<" "<<recv_y<<" "<<current_players_names_arr[recv_player_number]<<endl;
     send_pixel_to_gui(recv_x, recv_y, current_players_names_arr[recv_player_number]);
 }
 
@@ -349,17 +420,25 @@ bool Client::try_to_apply_game_over() {
 }
 
 
-bool Client::verify_new_game(const int& maxx, const int& maxy, const list<string>& player_names) {
+bool Client::verify_new_game(const int& maxx, const int& maxy, list<string>& player_names) {
+    if(!client_datagram.give_player_list(player_names)) {
+        cout<<"give player list wrong data\n";
+        return false;
+    }
+    cout<<"ODEBRALEM LISTE jej rozmiar to "<<player_names.size()<<endl;
     list<string> copy = player_names;
     copy.unique();
-    if(player_names.size() == copy.size() && recv_event_type == 0)
+    if(player_names.size() == copy.size() && recv_event_type == 0) {
+        cout<<"NEW GAME DONE\n";
         return true;
+    }
     cout<<"wrong data in new game \n";
     return false;
 }
 
 bool Client::verify_pixel_event(const int& player_number, const int& x, const int& y) {
     if(player_number_correct(player_number)) {
+        cout<<"PIXEL EVENT DONE\n";
         return x_in_board(x) && y_in_board(y) && players_not_eliminated[player_number];
     }
     cout<<"wrong data in pixel event \n";
@@ -368,6 +447,7 @@ bool Client::verify_pixel_event(const int& player_number, const int& x, const in
 
 bool Client::verify_player_eliminate(const int& player_number) {
     if(player_number_correct(player_number)) {
+        cout<<"PLAYER ELIMINATED APPLED\n";
         return players_not_eliminated[player_number];
     }
     cout<<"wrong data in player eliminated \n";
@@ -375,8 +455,10 @@ bool Client::verify_player_eliminate(const int& player_number) {
 }
 
 bool Client::verify_game_over() {
-    if(number_of_players == 1 && game_continues && !game_over)
+    if(number_of_players == 1 && game_continues && !game_over) {
+        cout<<"GAME OVER DONE\n";
         return true;
+    }
     cout<<"wrong data in game over \n";
     return false;
 }

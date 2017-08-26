@@ -118,10 +118,9 @@ void Datagram::copy_names_to_players_names_buffer(const char *datagram) {
     players_names_buffer_length = event_len - int8_len - 3*uint32_len;
 }
 
-bool Datagram::give_player_list(const char* datagram, list<string>& player_names) {
+bool Datagram::give_player_list(list<string>& player_names) {
     string t = "";
     for(int i = 0; i < players_names_buffer_length; i++) {
-        cout<<"symbol: "<<players_names_buffer[i]<<endl;
         if(MIN_VALID_PLAYER_NAME_SYMBOL <= players_names_buffer[i]
            && players_names_buffer[i] <= MAX_VALID_PLAYER_NAME_SYMBOL) {
             t += players_names_buffer[i];
@@ -140,27 +139,30 @@ bool Datagram::give_player_list(const char* datagram, list<string>& player_names
 
 
 
-bool Datagram::event_checksum_correct(const char* datagram, size_t len) {
-    if(!fields_fit_in_datagram(current_event_start + 2*uint32_len + len -1))
+bool Datagram::event_checksum_correct(const char* datagram, size_t len_field) {
+    if(!fields_fit_in_datagram(current_event_start + 2*uint32_len + len_field -1)) {
+        cout<<"fields_fit_in_datagram \n";
         return false;
+    }
     boost::crc_32_type result;
-    result.process_bytes(datagram + current_event_start + uint32_len, len);
-    get_int32_bit_value_fbuffer(datagram, len_crc32, current_event_start + len + uint32_len);
+    result.process_bytes(datagram + current_event_start ,len_field + uint32_len);
+    get_int32_bit_value_fbuffer(datagram, len_crc32, current_event_start + len_field + uint32_len);
     return len_crc32 == result.checksum();
 }
 
 
-void Datagram::go_to_next_event(int event_fields_len) {
-    current_event_start += event_fields_len + 2*uint32_len;
+void Datagram::go_to_next_event(const int& full_event_length) {
+    current_event_start += full_event_length;
 }
 
 
 
 uint32_t Datagram::checksum_current_new_game(const char* datagram, const size_t& event_len) {
-
+    //cout<<"dlugosc po do slumy kontrolnej "<<uint32_len + event_len<<endl;
+    //cout<<"w momencie zapisu event_start "<<current_event_start<<endl;
     mempcpy(crc32_new_game_buffer, datagram + current_event_start, uint32_len + event_len);
+    //cout<<"Obliczona checksum dla new game "<<compute_checksum(crc32_new_game_buffer, uint32_len + event_len)<<endl;
     return compute_checksum(crc32_new_game_buffer, uint32_len + event_len);
-
 }
 
 uint32_t Datagram::checksum_current_pixel(const char* datagram) {

@@ -57,21 +57,27 @@ bool Client_datagram::get_event_no(const char* datagram, uint32_t& event_no) {
     if(!fields_fit_in_datagram(current_event_start + 2*uint32_len -1))
         return false;
     get_int32_bit_value_fbuffer(datagram, event_no, current_event_start + uint32_len);
+    return true;
 }
 
 
 
 bool Client_datagram::get_next_event_length(const char* datagram, uint32_t& len) {
-    if(!fields_fit_in_datagram(current_event_start + uint32_len -1))
+    if(!fields_fit_in_datagram(current_event_start + uint32_len -1)) {
+        cout<<"INNER fields_fit_in_datagram start "<<current_event_start + uint32_len -1<<endl;
         return false;
+    }
+    //cout<<"OUT\n";
     get_int32_bit_value_fbuffer(datagram, len, current_event_start);
+    return true;
 }
 
 
 
 bool Client_datagram::get_next_event_type(const char* datagram, int8_t& event_type) {
-    if(fields_fit_in_datagram(current_event_start + LEN_POS + uint32_len-1));
-    get_int8_bit_value_fbuffer(datagram, event_type, current_event_start + LEN_POS);
+    if(fields_fit_in_datagram(current_event_start + 2*uint32_len));
+    get_int8_bit_value_fbuffer(datagram, event_type, current_event_start + 2*uint32_len);
+    return true;
 }
 
 
@@ -86,63 +92,62 @@ bool Client_datagram::datagram_starts_with_new_game(const char* datagram) {
 
 bool Client_datagram::get_next_event_new_game(const char *datagram, uint32_t &maxx, uint32_t &maxy,
                                               list<string> &player_names) {
-
     get_int32_bit_value_fbuffer(datagram, event_len, current_event_start + LEN_POS);
+    cout<<"uzyskano event_len"<<event_len<<endl;
+    uint32_t computed_checksum = checksum_current_new_game(datagram, event_len);
     if(!fields_fit_in_datagram(current_event_start + event_len - 1 + uint32_len)) {
         cout<<"zrabane \n";
         return false;
     }
-
-    get_int32_bit_value_fbuffer(datagram, maxx, current_event_start + EVENT_DATA_POS + int8_len);
-    get_int32_bit_value_fbuffer(datagram, maxy, current_event_start + EVENT_DATA_POS + int8_len + uint32_len);
+    cout<<"zaczyna sie current_event_start "<<current_event_start<<endl;
+    get_int32_bit_value_fbuffer(datagram, maxx, current_event_start + EVENT_DATA_POS);
+    get_int32_bit_value_fbuffer(datagram, maxy, current_event_start + EVENT_DATA_POS + uint32_len);
+    cout<<"uzyskano maxx i maxy z datagramu "<<maxx<<" "<<maxy<<endl;
     get_int32_bit_value_fbuffer(datagram, crc32, current_event_start + event_len + uint32_len);
-    if(!give_player_list(datagram, player_names)) {
-        cout<<"suma";
-        return false;
-    }
-    current_event_start += event_len + uint32_len + uint32_len;
-    cout<<"siema siema suma kontrolna\n";
-    return crc32 == checksum_current_new_game(datagram, event_len);
+    copy_names_to_players_names_buffer(datagram);
+    go_to_next_event(event_len + uint32_len + uint32_len);
+    return crc32 == computed_checksum;
 }
 
 bool Client_datagram::get_next_event_pixel(const char *datagram, int8_t &player_number, uint32_t &x, uint32_t &y) {
     //sprawdzamy czy dane mieszcza sie w datagramie
+
     if(!fields_fit_in_datagram(next_free_byte + LAST_BYTE_OF_PIXEL_EVENT))
         return false;
     //wyciagamy dane
     get_int32_bit_value_fbuffer(datagram, event_len, current_event_start + LEN_POS);
+    uint32_t computed_checksum = checksum_current_pixel(datagram);
     get_int8_bit_value_fbuffer(datagram, player_number, current_event_start + EVENT_DATA_POS);
+    //cout<<"ODEBRANO PLAYER NUMBER "
     get_int32_bit_value_fbuffer(datagram, x, current_event_start + EVENT_DATA_POS + int8_len);
     get_int32_bit_value_fbuffer(datagram, y, current_event_start + EVENT_DATA_POS + int8_len + uint32_len);
     get_int32_bit_value_fbuffer(datagram, crc32, current_event_start + CRC32_PIXEL_POS);
-    current_event_start += SIZE_BYTE_OF_PIXEL_EVENT;
+    go_to_next_event(SIZE_BYTE_OF_PIXEL_EVENT);
     //true gdy suma kontrolna sie zgadza
-    return crc32 == checksum_current_pixel(datagram);
+    return crc32 == computed_checksum;
 }
 
 
 bool Client_datagram::get_next_event_player_eliminate(const char *datagram, int8_t &player_number) {
-    //sprawdzamy czy dane mieszcza sie w datagramie
     if(!fields_fit_in_datagram(current_event_start + LAST_BYTE_OF_PLAYER_ELIMINATED_EVENT))
         return false;
     get_int32_bit_value_fbuffer(datagram, event_len, current_event_start + LEN_POS);
+    uint32_t computed_checksum = checksum_current_player_eliminated(datagram);
     //wyciagamy dane
     get_int32_bit_value_fbuffer(datagram, crc32, current_event_start + CRC32_PLAYER_ELIMINATE_POS);
-    current_event_start += SIZE_BYTE_OF_PLAYER_ELIMINATE_EVENT;
-    //true gdy suma kontrolna sie zgadza
-    return crc32 == checksum_current_player_eliminated(datagram);
+    go_to_next_event(SIZE_BYTE_OF_PLAYER_ELIMINATE_EVENT);
+    return crc32 == computed_checksum;
 }
 
 
 bool Client_datagram::get_next_event_game_over(const char *datagram) {
-    //sprawdzamy czy dane mieszcza sie w datagramie
     if(!fields_fit_in_datagram(current_event_start + LAST_BYTE_OF_GAME_OVER_EVENT))
         return false;
     mempcpy(crc32_game_over_buffer, datagram + current_event_start, CRC32_GAME_OVER_POS);
     get_int32_bit_value_fbuffer(datagram, event_len, current_event_start + LEN_POS);
+    uint32_t computed_checksum = checksum_current_game_over(datagram);
     current_event_start += LAST_BYTE_OF_GAME_OVER_EVENT + 1;
-    //true gdy suma kontrolna sie zgadza
-    return crc32 == checksum_current_game_over(datagram);
+    return crc32 == computed_checksum;
 }
 
 

@@ -79,7 +79,7 @@ private:
 private:
     int8_t take_direction_from_gui_message(const string& button_received);
 
-    bool verify_new_game(const int& maxx, const int& maxy, const list<string>& player_names);
+    bool verify_new_game(const int& maxx, const int& maxy, list<string>& player_names);
     bool verify_pixel_event(const int& player_number, const int& x, const int& y);
     bool verify_player_eliminate(const int& player_number);
     bool verify_game_over();
@@ -118,6 +118,9 @@ public:
     bool send_datagram_to_server();
 
     bool receive_datagram_from_server();
+
+    bool receive_datagram_from_server_test(const char* datagram, int recv_len_test);
+
 
     bool try_to_apply_new_game();
     bool try_to_apply_pixel();

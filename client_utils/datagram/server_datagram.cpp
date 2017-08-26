@@ -41,10 +41,15 @@ bool Server_datagram::data_will_fit_to_datagram(const int &last_byte_pos) {
 }
 
 
-int Server_datagram::length_of_new_game_event(const string& player_names) {
+int Server_datagram::length_of_new_game_event_fields(const string &player_names) {
     auto length_of_names = (int)player_names.length();
     //length_of_names += 1; // '\0' after last name
-    return SIZE_BYTE_OF_NEW_GAME_to_maxy + length_of_names;
+    return SIZE_BYTE_OF_NEW_GAME_to_maxy + length_of_names - uint32_len;
+}
+
+bool Server_datagram::pack_game_id(char *datagram, const uint32_t &game_id) {
+    pack_next_uint32_bit_value_buffer(datagram, game_id);
+    go_to_next_event(uint32_len);
 }
 
 
@@ -52,16 +57,18 @@ bool Server_datagram::pack_new_game_to_datagram(char* datagram, const uint32_t& 
                                                 const list<string>& player_names) {
 
     string name_list = chain_list(player_names);
-    int new_game_event_len = length_of_new_game_event(name_list);
-    if(!data_will_fit_to_datagram(next_free_byte + new_game_event_len + uint32_len -1))
+    int new_game_event_fields_len = length_of_new_game_event_fields(name_list);
+    if(!data_will_fit_to_datagram(next_free_byte + new_game_event_fields_len + 2*uint32_len -1))
         return false;
-    pack_next_uint32_bit_value_buffer(datagram, new_game_event_len - uint32_len);
+    pack_next_uint32_bit_value_buffer(datagram, new_game_event_fields_len);
     pack_next_uint32_bit_value_buffer(datagram, event_no);
     pack_next_int8_bit_value_buffer(datagram, EVENT_TYPE_NEW_GAME);
     pack_next_uint32_bit_value_buffer(datagram, maxx);
     pack_next_uint32_bit_value_buffer(datagram, maxy);
     pack_name_list_buffer(datagram, player_names);
-    pack_next_uint32_bit_value_buffer(datagram, checksum_current_new_game(datagram, new_game_event_len));
+    cout<<"dlugosc samych events "<<new_game_event_fields_len<<endl;
+    pack_next_uint32_bit_value_buffer(datagram, checksum_current_new_game(datagram, new_game_event_fields_len));
+    go_to_next_event(new_game_event_fields_len + 2*uint32_len);
     return true;
 }
 
@@ -77,6 +84,7 @@ bool Server_datagram::pack_pixel_to_datagram(char* datagram, const uint32_t& eve
     pack_next_uint32_bit_value_buffer(datagram, x);
     pack_next_uint32_bit_value_buffer(datagram, y);
     pack_next_uint32_bit_value_buffer(datagram, checksum_current_pixel(datagram));
+    go_to_next_event(SIZE_BYTE_OF_PIXEL_EVENT);
     return true;
 }
 
@@ -89,6 +97,7 @@ bool Server_datagram::pack_player_eliminate(char* datagram, const uint32_t& even
     pack_next_int8_bit_value_buffer(datagram, EVENT_TYPE_PLAYER_ELIMINATED);
     pack_next_int8_bit_value_buffer(datagram, player_number);
     pack_next_uint32_bit_value_buffer(datagram, checksum_current_player_eliminated(datagram));
+    go_to_next_event(SIZE_BYTE_OF_PLAYER_ELIMINATE_EVENT);
     return true;
 }
 
@@ -97,9 +106,11 @@ bool Server_datagram::pack_game_over_to_datagram(char* datagram, const uint32_t&
 
     if(!data_will_fit_to_datagram(current_event_start + SIZE_BYTE_OF_GAME_OVER_EVENT -1))
         return false;
-    pack_next_uint32_bit_value_buffer(datagram, PLAYER_ELIMINATED_EVENTS_FIELDS_SIZE);
+    pack_next_uint32_bit_value_buffer(datagram, GAME_OVER_EVENTS_FIELDS_SIZE);
     pack_next_uint32_bit_value_buffer(datagram, event_no);
-    pack_next_int8_bit_value_buffer(datagram, EVENT_TYPE_PLAYER_ELIMINATED);
+    pack_next_int8_bit_value_buffer(datagram, EVENT_TYPE_GAME_OVER);
     pack_next_uint32_bit_value_buffer(datagram, checksum_current_game_over(datagram));
+    go_to_next_event(SIZE_BYTE_OF_GAME_OVER_EVENT);
     return true;
 }
+
