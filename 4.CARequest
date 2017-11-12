@@ -1,0 +1,29 @@
+root@karol:/usr/lib/ssl/misc# ./CA.sh -newreq
+Generating a 2048 bit RSA private key
+.......................................+++
+................+++
+writing new private key to 'newkey.pem'
+Enter PEM pass phrase:
+Verifying - Enter PEM pass phrase:
+-----
+You are about to be asked to enter information that will be incorporated
+into your certificate request.
+What you are about to enter is what is called a Distinguished Name or a DN.
+There are quite a few fields but you can leave some blank
+For some fields there will be a default value,
+If you enter '.', the field will be left blank.
+-----
+Country Name (2 letter code) [AU]:PL
+State or Province Name (full name) [Some-State]:Mazowieckie
+Locality Name (eg, city) []:Warsaw
+Organization Name (eg, company) [Internet Widgits Pty Ltd]:MIMUW
+Organizational Unit Name (eg, section) []:BSK
+Common Name (e.g. server FQDN or YOUR name) []:bsklab1.mimuw.edu.pl
+Email Address []:bsk@mimuw.edu.pl
+
+Please enter the following 'extra' attributes
+to be sent with your certificate request
+A challenge password []:12345
+An optional company name []:UW
+Request is in newreq.pem, private key is in newkey.pem
+root@karol:/usr/lib/ssl/misc# 
