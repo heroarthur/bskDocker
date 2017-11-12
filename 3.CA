@@ -1,0 +1,60 @@
+root@karol:/# cd usr/lib/ssl/misc
+root@karol:/usr/lib/ssl/misc# ./CA.sh -newca
+CA certificate filename (or enter to create)
+
+Making CA certificate ...
+Generating a 2048 bit RSA private key
+......................................................................................................................................................+++
+..............................+++
+writing new private key to './demoCA/private/./cakey.pem'
+Enter PEM pass phrase:
+Verifying - Enter PEM pass phrase:
+-----
+You are about to be asked to enter information that will be incorporated
+into your certificate request.
+What you are about to enter is what is called a Distinguished Name or a DN.
+There are quite a few fields but you can leave some blank
+For some fields there will be a default value,
+If you enter '.', the field will be left blank.
+-----
+Country Name (2 letter code) [AU]:PL
+State or Province Name (full name) [Some-State]:Mazowieckie
+Locality Name (eg, city) []:Warsaw
+Organization Name (eg, company) [Internet Widgits Pty Ltd]:MIMUW
+Organizational Unit Name (eg, section) []:BSK
+Common Name (e.g. server FQDN or YOUR name) []:BSK Certification Authority 16
+Email Address []:ca@mimuw.edu.pl
+
+Please enter the following 'extra' attributes
+to be sent with your certificate request
+A challenge password []:12345
+An optional company name []:
+Using configuration from /usr/lib/ssl/openssl.cnf
+Enter pass phrase for ./demoCA/private/./cakey.pem:
+Check that the request matches the signature
+Signature ok
+Certificate Details:
+        Serial Number:
+            97:62:de:55:25:b2:60:58
+        Validity
+            Not Before: Nov 12 22:19:19 2017 GMT
+            Not After : Nov 11 22:19:19 2020 GMT
+        Subject:
+            countryName               = PL
+            stateOrProvinceName       = Mazowieckie
+            organizationName          = MIMUW
+            organizationalUnitName    = BSK
+            commonName                = BSK Certification Authority 16
+            emailAddress              = ca@mimuw.edu.pl
+        X509v3 extensions:
+            X509v3 Subject Key Identifier: 
+                A9:70:66:B1:6F:EE:DD:84:48:9F:01:3B:36:BE:1A:CE:4E:A5:18:F1
+            X509v3 Authority Key Identifier: 
+                keyid:A9:70:66:B1:6F:EE:DD:84:48:9F:01:3B:36:BE:1A:CE:4E:A5:18:F1
+
+            X509v3 Basic Constraints: 
+                CA:TRUE
+Certificate is to be certified until Nov 11 22:19:19 2020 GMT (1095 days)
+
+Write out database with 1 new entries
+Data Base Updated
