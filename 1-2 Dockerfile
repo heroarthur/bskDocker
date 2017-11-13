@@ -1,0 +1,14 @@
+FROM ubuntu
+ 
+MAINTAINER brak
+ 
+RUN apt-get update && apt-get install -y apache2 
+ 
+EXPOSE 80
+
+ENTRYPOINT  echo "solab01" > /var/www/html/index.html \
+						&& echo "vsolab01" > /etc/hosts \ 
+						&& /etc/init.d/apache2 start \ 
+						&& /bin/bash 
+ 
+CMD ["/etc/init.d/apache2" "start "]
